@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
-# meta developer: @negrmefrdron
-# scope: heroku_only
-
 import logging
 import aiohttp
+import urllib.parse
+import xml.etree.ElementTree as ET  # Import XML parsing library
 from herokutl.tl.types import Message
 from .. import loader, utils
 
@@ -16,29 +14,39 @@ class WikipediaModule(loader.Module):
         "query_success": "Вот что я нашел на Википедии:\n{}",
         "query_error": "Не удалось получить информацию из Википедии.",
         "no_results": "К сожалению, по вашему запросу ничего не найдено.",
-        "wiki_usage": "Используйте: .wiki <запрос>"  # Добавлено описание использования
+        "wiki_usage": "Используйте: .wiki <запрос>"
     }
 
     def __init__(self):
         self.config = loader.ModuleConfig()
+        self.user_agent = "MyUserbot/1.0 (https://example.com; myemail@example.com)"
 
     async def fetch_wikipedia_summary(self, query: str) -> str:
         """Получает краткую информацию из Википедии."""
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    f"https://en.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch={query}&utf8=1"
-                ) as response:
+            headers = {'User-Agent': self.user_agent}
+            encoded_query = urllib.parse.quote_plus(query)  # URL-encode the query
+            api_url = f"https://ru.wikipedia.org/w/api.php?action=opensearch&search={encoded_query}&prop=info&format=xml&inprop=url"
+
+            async with aiohttp.ClientSession(headers=headers) as session:
+                async with session.get(api_url) as response:
                     if response.status == 200:
-                        data = await response.json()
-                        pages = data.get("query", {}).get("search", [])
-                        
-                        if pages:
-                            title = pages[0]["title"]
-                            snippet = pages[0]["snippet"]
-                            return f"{title}\n{snippet}"
-                        else:
-                            return self.strings["no_results"]
+                        xml_text = await response.text()
+                        try:
+                            root = ET.fromstring(xml_text)
+                            # Extract data from XML (adapt to the XML structure)
+                            items = root.findall(".//Item")  # Adjust based on actual XML structure
+                            if items:
+                                first_item = items[0]
+                                title = first_item.findtext("./Text")
+                                description = first_item.findtext("./Description")
+                                url = first_item.findtext("./Url")
+                                return f"{title}\n{description}\n{url}"
+                            else:
+                                return self.strings["no_results"]
+                        except ET.ParseError as e:
+                            logger.error(f"Ошибка парсинга XML: {e}")
+                            return self.strings["query_error"]
                     else:
                         logger.error(f"Ошибка API Википедии: {response.status}")
                         return self.strings["query_error"]
