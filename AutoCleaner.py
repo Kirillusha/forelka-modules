@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re 
 
 from herokutl.tl.types import Message
 from telethon.tl.functions.messages import DeleteHistoryRequest
