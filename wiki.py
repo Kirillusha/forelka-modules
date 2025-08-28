@@ -15,7 +15,8 @@ class WikipediaModule(loader.Module):
         "name": "WikipediaModule",
         "query_success": "Вот что я нашел на Википедии:\n{}",
         "query_error": "Не удалось получить информацию из Википедии.",
-        "no_results": "К сожалению, по вашему запросу ничего не найдено."
+        "no_results": "К сожалению, по вашему запросу ничего не найдено.",
+        "wiki_usage": "Используйте: .wiki <запрос>"  # Добавлено описание использования
     }
 
     def __init__(self):
@@ -35,7 +36,7 @@ class WikipediaModule(loader.Module):
                         if pages:
                             title = pages[0]["title"]
                             snippet = pages[0]["snippet"]
-                            return f"**{title}**\n{snippet}"
+                            return f"{title}\n{snippet}"
                         else:
                             return self.strings["no_results"]
                     else:
@@ -45,12 +46,16 @@ class WikipediaModule(loader.Module):
             logger.error(f"Ошибка при запросе к Википедии: {e}")
             return self.strings["query_error"]
 
-    @loader.command
+    @loader.command(ru_doc="Ищет информацию в Википедии.", ua_doc="Шукає інформацію у Вікіпедії.", en_doc="Searches Wikipedia for information.")
     async def wiki(self, message: Message):
-        """Ищет информацию в Википедии по запросу."""
-        user_query = message.text.strip()
+        """Ищет информацию в Википедии по запросу.
+
+        Пример использования:
+        .wiki Python
+        """
+        user_query = utils.get_args_raw(message)
         if user_query:
             summary = await self.fetch_wikipedia_summary(user_query)
-            await message.respond(self.strings["query_success"].format(summary))
+            await utils.answer(message, self.strings["query_success"].format(summary))
         else:
-            await message.respond("Пожалуйста, введите запрос для поиска в Википедии.")
+            await utils.answer(message, self.strings["wiki_usage"])
