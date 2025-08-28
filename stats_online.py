@@ -91,3 +91,11 @@ class StatusLoggerModule(loader.Module):
             if user_id:
                 chart_file = await self.get_activity_chart(user_id)
                 if chart_file:
+                    await message.respond(self.strings["activity_chart"])
+                    await message.client.send_file(message.chat_id, chart_file)
+                else:
+                    await message.respond("Нет данных для отображения графика.")
+            else:
+                await message.respond(self.strings["user_not_found"])
+        else:
+            await message.respond("Пожалуйста, укажите имя пользователя.")
