@@ -7,50 +7,60 @@ import asyncio
 from herokutl.tl.types import Message
 from .. import loader, utils
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__) # Исправлено: __name__
 
 @loader.tds
 class SpamModule(loader.Module):
     strings = {
         "name": "SpamModule",
-        "start_spam": "Запуск спама с задержкой в {delay} секунд.",
+        "start_spam": "Запуск отправки сообщений с задержкой в {delay} секунд.",
         "delayed_message": "Сообщение отправлено.",
-        "spam_completed": "Спам завершён."
+        "spam_completed": "Отправка сообщений завершена.",
+        "spam_usage": "Используйте: .spam <количество> <текст сообщения>" # Добавлено
     }
 
     def __init__(self):
         self.config = loader.ModuleConfig(
-            "delay",  # Задержка по умолчанию
-            int(8),  # 8 секунд
-            lambda: "Задержка между сообщениями"
+            {
+                "delay": loader.ConfigValue(
+                    8,
+                    "Задержка между сообщениями в секундах",
+                    validator=loader.validators.Integer(minimum=1)  # Минимальная задержка 1 секунда
+                )
+            }
         )
 
     async def send_spam(self, message: Message, text: str, count: int):
         """Отправляет сообщения с заданной задержкой."""
         for i in range(count):
-            await message.respond(text)
+            await utils.answer(message, text) # Исправлено: utils.answer
             await asyncio.sleep(self.config["delay"])  # Задержка между сообщениями
             logger.info(f"Отправлено сообщение {i+1}: {text}")
 
-    @loader.command
+    @loader.command(ru_doc="Отправляет сообщения с задержкой.", ua_doc="Надсилає повідомлення із затримкою.", en_doc="Sends messages with a delay.")
     async def spam(self, message: Message):
-        """Запускает спам сообщений.
+        """Отправляет сообщения с заданной задержкой.
         
         Пример использования:
         .spam <количество> <текст сообщения>
         """
-        args = message.text.split(maxsplit=2)
-        if len(args) < 3:
-            await message.respond("Используйте: .spam <количество> <текст сообщения>")
+        args = utils.get_args_raw(message) # Исправлено: utils.get_args_raw
+        if not args:
+            await utils.answer(message, self.strings["spam_usage"]) # Исправлено: utils.answer
+            return
+
+        args_list = args.split(maxsplit=1) # Исправлено: args.split
+        if len(args_list) < 2:
+            await utils.answer(message, self.strings["spam_usage"]) # Исправлено: utils.answer
             return
 
         try:
-            count = int(args[1])
-            text = args[2]
+            count = int(args_list[0])
+            text = args_list[1]
         except ValueError:
-            await message.respond("Количество должно быть числом.")
+            await utils.answer(message, "Количество должно быть числом.") # Исправлено: utils.answer
             return
 
-        await message.respond(self.strings["start_spam"].format(delay=self.config["delay"]))
+        await utils.answer(message, self.strings["start_spam"].format(delay=self.config["delay"])) # Исправлено: utils.answer
         await self.send_spam(message, text, count)
-        await message.respond(self.strings["spam_completed"])
+        await utils.answer(message, self.strings["spam_completed"]) # Исправлено: utils.answer
